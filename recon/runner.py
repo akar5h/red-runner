@@ -1,0 +1,105 @@
+"""Runner — loads a catalog, fires multi-turn scenarios, collects scored results."""
+
+from __future__ import annotations
+
+import json
+import uuid
+from pathlib import Path
+
+from .target import Target
+from .scorer import Scorer
+
+
+def load_catalog(path: str | Path) -> dict:
+    with open(path) as f:
+        return json.load(f)
+
+
+def run_catalog(
+    catalog: dict,
+    target: Target,
+    scorer: Scorer,
+    *,
+    ids: list[str] | None = None,
+    pass_filter: str | None = None,
+    verbose: bool = True,
+) -> dict:
+    """Run scenarios from a catalog. Optionally filter by IDs or pass (A/B/C)."""
+
+    attacks = catalog["attacks"]
+
+    if ids:
+        attacks = [a for a in attacks if a["id"] in ids]
+    if pass_filter:
+        attacks = [a for a in attacks if a.get("pass") == pass_filter]
+
+    if not attacks:
+        raise SystemExit("No scenarios matched the filter.")
+
+    run_id = uuid.uuid4().hex[:8]
+    results: dict = {
+        "catalog_id": catalog["catalog_id"],
+        "run_id": run_id,
+        "total_scenarios": len(attacks),
+        "summary": {"L1_BLOCKED": 0, "L2_BLOCKED": 0, "PASSED_SAFE": 0, "PASSED_LEAK": 0, "INFRA_FAIL": 0},
+        "scenarios": [],
+    }
+
+    for i, attack in enumerate(attacks, 1):
+        if verbose:
+            print(f"\n[{i}/{len(attacks)}] {attack['id']}  ({attack.get('attack_family', '')})")
+
+        session_id = uuid.uuid4().hex
+        turn_results = []
+
+        for t, prompt in enumerate(attack["turns"], 1):
+            if verbose:
+                label = prompt[:72] + "..." if len(prompt) > 72 else prompt
+                print(f"  T{t}: {label}")
+
+            resp = target.send(prompt, session_id)
+            ts = scorer.score(resp)
+
+            turn_results.append({
+                "turn": t,
+                "prompt": prompt,
+                "response": resp.text[:2000],
+                "elapsed_ms": round(ts.elapsed_ms, 1),
+                "score": ts.score,
+                "reasoning": ts.reasoning,
+            })
+
+            if verbose:
+                print(f"      → {ts.score}  {ts.elapsed_ms:.0f}ms  {ts.reasoning}")
+
+        overall = _overall(turn_results)
+        results["summary"][overall] += 1
+
+        results["scenarios"].append({
+            "id": attack["id"],
+            "pass": attack.get("pass"),
+            "recon_target": attack.get("recon_target"),
+            "signal_type": attack.get("signal_type"),
+            "overall": overall,
+            "turns": turn_results,
+        })
+
+    if verbose:
+        print(f"\n{'='*60}")
+        print(f"Run {run_id} complete — {len(attacks)} scenarios")
+        for k, v in results["summary"].items():
+            if v:
+                print(f"  {k}: {v}")
+
+    return results
+
+
+def _overall(turns: list[dict]) -> str:
+    scores = [t["score"] for t in turns]
+    if "PASSED_LEAK" in scores:
+        return "PASSED_LEAK"
+    if all(s in ("L1_BLOCKED", "INFRA_FAIL") for s in scores):
+        return "L1_BLOCKED"
+    if "L2_BLOCKED" in scores:
+        return "L2_BLOCKED"
+    return "PASSED_SAFE"
