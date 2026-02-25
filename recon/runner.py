@@ -41,7 +41,7 @@ def run_catalog(
         "catalog_id": catalog["catalog_id"],
         "run_id": run_id,
         "total_scenarios": len(attacks),
-        "summary": {"L1_BLOCKED": 0, "L2_BLOCKED": 0, "PASSED_SAFE": 0, "PASSED_LEAK": 0, "INFRA_FAIL": 0},
+        "summary": {"BLOCKED": 0, "PASSED_SAFE": 0, "PASSED_LEAK": 0, "INFRA_FAIL": 0},
         "scenarios": [],
     }
 
@@ -98,8 +98,8 @@ def _overall(turns: list[dict]) -> str:
     scores = [t["score"] for t in turns]
     if "PASSED_LEAK" in scores:
         return "PASSED_LEAK"
-    if all(s in ("L1_BLOCKED", "INFRA_FAIL") for s in scores):
-        return "L1_BLOCKED"
-    if "L2_BLOCKED" in scores:
-        return "L2_BLOCKED"
+    if all(s in ("BLOCKED", "INFRA_FAIL") for s in scores):
+        return "BLOCKED"
+    if "BLOCKED" in scores:
+        return "BLOCKED"
     return "PASSED_SAFE"
