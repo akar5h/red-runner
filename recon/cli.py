@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None):
     p.add_argument("catalog", help="Path to attack catalog JSON")
     p.add_argument("-c", "--config", default="config.yaml", help="Config YAML (default: config.yaml)")
     p.add_argument("--ids", nargs="*", help="Only run these scenario IDs")
-    p.add_argument("--pass", dest="pass_filter", choices=["A", "B", "C"], help="Only run scenarios from this pass")
+    p.add_argument("--pass", dest="pass_filter", metavar="PASS", help="Only run scenarios from this pass (A/B/C/D/E/F/…)")
     p.add_argument("-o", "--output", help="Output results JSON path (default: results/<run_id>.json)")
     p.add_argument("-q", "--quiet", action="store_true", help="Suppress per-turn output")
     args = p.parse_args(argv)
