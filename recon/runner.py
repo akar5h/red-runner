@@ -58,7 +58,7 @@ def run_catalog(
                 print(f"  T{t}: {label}")
 
             resp = target.send(prompt, session_id)
-            ts = scorer.score(resp)
+            ts = scorer.score(resp, prompt=prompt)
 
             turn_results.append({
                 "turn": t,
