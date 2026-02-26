@@ -41,7 +41,8 @@ def run_catalog(
         "catalog_id": catalog["catalog_id"],
         "run_id": run_id,
         "total_scenarios": len(attacks),
-        "summary": {"SUCCESS": 0, "LEAK": 0, "ECHO": 0, "BLOCKED": 0, "SAFE": 0, "ERROR": 0},
+        "summary": {"SUCCESS": 0, "LEAK": 0, "ECHO": 0, "BLOCKED": 0, "SAFE": 0, "ERROR": 0,
+                     "file_review_needed": 0},
         "scenarios": [],
     }
 
@@ -67,7 +68,11 @@ def run_catalog(
                 "elapsed_ms": round(ts.elapsed_ms, 1),
                 "score": ts.score,
                 "reasoning": ts.reasoning,
+                "file_generated": ts.file_generated,
             })
+
+            if ts.file_generated:
+                results["summary"]["file_review_needed"] += 1
 
             if verbose:
                 print(f"      → {ts.score}  {ts.elapsed_ms:.0f}ms  {ts.reasoning}")
@@ -89,7 +94,8 @@ def run_catalog(
         print(f"Run {run_id} complete — {len(attacks)} scenarios")
         for k, v in results["summary"].items():
             if v:
-                print(f"  {k}: {v}")
+                label = "file_review_needed" if k == "file_review_needed" else k
+                print(f"  {label}: {v}")
 
     return results
 
